@@ -2,149 +2,139 @@
 namespace behavior {
 
     export interface Behavior {
-        update() : void
+        sprite : Sprite;
+        target : Sprite;
+        update() : boolean ;
     }
 
     export enum MovePattern {
         Bounce,
-        TurnOnSideWall,
+        TurnIfOnWall,
         BounceAndTurnOnSideWall,
         FlyAndTurnOnSideWall,
     }
 
-    export enum ChasePattern {
-        Chaser,
-    }
-
-    namespace move {
-
-        class BounceBehavior implements Behavior {
-            _sprite: Sprite;
-            constructor(sprite: Sprite) {
-                this._sprite = sprite;
-                this._sprite.vy = 200;
-            }
-            update() : void {
-                let vy = this._sprite.vy;
-                this._sprite.vy = Math.min(vy+8, 200);
-
-                if (this._sprite.isHittingTile(CollisionDirection.Bottom)) {
-                    this._sprite.vy = -200;
-                }
-            }
+    class MoverBehavior implements Behavior {
+        _sprite: Sprite;
+        _vx: number;
+        _vy: number;
+        constructor(sprite: Sprite, vx: number, vy: number) {
+            this._sprite = sprite;
+            this._sprite.vx = this._vx = Math.abs(vx);
+            this._sprite.vy = this._vy = Math.abs(vy);
         }
-
-        class TurnOnSideWallBehavior implements Behavior {
-            _sprite: Sprite;
-            constructor(sprite: Sprite) {
-                this._sprite = sprite;
-                this._sprite.vx = 50;
-                this._sprite.vy = 200;
-            }
-            update() : void {
-                let vy2 = this._sprite.vy;
-                this._sprite.vy = Math.min(vy2+10, 200);
-
-                if (this._sprite.isHittingTile(CollisionDirection.Left)) {
-                    this._sprite.vx = 50;
-                } else if (this._sprite.isHittingTile(CollisionDirection.Right)) {
-                    this._sprite.vx = -50;
-                }
-            }
+        get sprite() : Sprite {
+            return this._sprite;
         }
-
-        class BounceAndTurnOnSideWallBehavior implements Behavior {
-            _sprite: Sprite;
-            constructor(sprite: Sprite) {
-                this._sprite = sprite;
-                this._sprite.vx = 50;
-                this._sprite.vy = 200;
-            }
-            update() : void {
-                let vy3 = this._sprite.vy;
-                this._sprite.vy = Math.min(vy3+6, 200);
-
-                if (this._sprite.isHittingTile(CollisionDirection.Bottom)) {
-                    this._sprite.vy = -200;
-                }
-
-                if (this._sprite.isHittingTile(CollisionDirection.Left)) {
-                    this._sprite.vx = 50;
-                } else if (this._sprite.isHittingTile(CollisionDirection.Right)) {
-                    this._sprite.vx = -50;
-                }
-            }
+        get target() : Sprite {
+            return null;
         }
-
-        class FlyAndTurnOnSideWallBehavior implements Behavior {
-            _sprite: Sprite;
-            constructor(sprite: Sprite) {
-                this._sprite = sprite;
-                this._sprite.vx = 40;
-            }
-            update() : void {
-                if (this._sprite.isHittingTile(CollisionDirection.Left)) {
-                    this._sprite.vx = 40;
-                } else if (this._sprite.isHittingTile(CollisionDirection.Right)) {
-                    this._sprite.vx = -40;
-                }
-            }
+        update() : boolean {
+            return false;
         }
-
-        export function createBehavior(sprite: Sprite, pattern: MovePattern) : Behavior {
-            switch(pattern) {
-            case MovePattern.Bounce:
-                return new BounceBehavior(sprite);
-            case MovePattern.TurnOnSideWall:
-                return new TurnOnSideWallBehavior(sprite);
-            case MovePattern.BounceAndTurnOnSideWall:
-                return new BounceAndTurnOnSideWallBehavior(sprite);
-            case MovePattern.FlyAndTurnOnSideWall:
-                return new FlyAndTurnOnSideWallBehavior(sprite);
-            default:
-                return null;
+        moveRight() {
+            this._sprite.vx = this._vx;
+        }
+        moveLeft() {
+            this._sprite.vx = this._vx * -1;
+        }
+        protected _fall() {
+            let vy = this._sprite.vy;
+            this._sprite.vy = Math.min(vy+8, this._vy);
+        }
+        protected _jumpIfOnGround() : boolean {
+            if (this._sprite.isHittingTile(CollisionDirection.Bottom)) {
+                this._sprite.vy = this._vy * -1;
+                return true;
             }
+            return false;
+        }
+        protected _ternIfOnWall() : boolean {
+            if (this._sprite.isHittingTile(CollisionDirection.Left)) {
+                this.moveRight();
+                return true;
+            } else if (this._sprite.isHittingTile(CollisionDirection.Right)) {
+                this.moveLeft();
+                return true;
+            }
+            return false;
         }
     }
 
-    namespace chase {
-
-        class ChaserBehavior implements Behavior {
-            _target: Sprite;
-            _follower: Sprite;
-            constructor(target: Sprite, follower: Sprite) {
-                this._target = target;
-                this._follower = follower;
-                this._follower.vy = 200;
-            }
-            update() : void {
-                let vy = this._follower.vy;
-                this._follower.vy = Math.min(vy+8, 200);
-
-                if (this._follower.isHittingTile(CollisionDirection.Bottom)) {
-                    this._follower.vy = -200;
-
-                    if( this._follower.x < this._target.x ) {
-                        this._follower.vx = 30;
-                    } else if( this._target.x < this._follower.x ) {
-                        this._follower.vx = -30;
-                    }
-
-                }
-
-
-            }
+    class BounceBehavior extends MoverBehavior {
+        constructor(sprite: Sprite) {
+            super(sprite, 0, 120);
         }
-
-        export function createBehavior(target: Sprite, follower: Sprite, pattern: ChasePattern) : Behavior {
-            switch(pattern) {
-            case ChasePattern.Chaser:
-                return new ChaserBehavior(target, follower);
-            default:
-                return null;
-            }
+        update() : boolean {
+            this._fall();
+            return this._jumpIfOnGround();
         }
+    }
 
+    class TurnIfOnWallBehavior extends MoverBehavior {
+        constructor(sprite: Sprite) {
+            super(sprite, 50, 200);
+        }
+        update() : boolean {
+            this._fall();
+            this._ternIfOnWall();
+            return true;    // always true
+        }
+    }
+
+    class BounceAndTurnOnSideWallBehavior extends MoverBehavior {
+        constructor(sprite: Sprite) {
+            super(sprite, 50, 200);
+        }
+        update() : boolean {
+            this._fall();
+
+            if( this._jumpIfOnGround() ) {
+                return true;
+            }
+            
+            if( this._ternIfOnWall() ) {
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    class FlyAndTurnOnSideWallBehavior extends MoverBehavior {
+        constructor(sprite: Sprite) {
+            super(sprite, 50, 0);
+        }
+        update() : boolean {
+            return this._ternIfOnWall();
+        }
+    }
+
+    class ChaserBehavior implements Behavior {
+        _mover: MoverBehavior
+        _target: Sprite;
+        constructor(mover: MoverBehavior, target: Sprite) {
+            this._mover = mover;
+            this._target = target;
+        }
+        get sprite() {
+            return this._mover.sprite;
+        }
+        get target() : Sprite {
+            return this._target;
+        }
+        update() : boolean {
+            if( !this._mover.update() )
+                return false;
+
+            if( this._target.x < this._mover.sprite.x ) {
+                this._mover.moveLeft();
+            } else if( this._mover.sprite.x < this._target.x ) {
+                this._mover.moveRight();
+            }
+
+            return true;
+        }
     }
 
     class Item {
@@ -160,31 +150,59 @@ namespace behavior {
     })
 
     //% block="set $pattern pattern of $sprite=variables_get(aEnemy)"
-    export function setMovePattern(sprite: Sprite, pattern: MovePattern) {
-        sprite.onDestroyed(() => {
-            let found = _items.find((item: Item, index: number) => {
-                return item.sprite == sprite;
-            });
-            _items.removeElement(found);
-        });
+    export function setPattern(sprite: Sprite, pattern: MovePattern) {
+        let _behavior = _createBehavior(sprite, pattern);
+        if( !_behavior )
+            return;
+
+        sprite.setFlag(SpriteFlag.StayInScreen, false);
+
         let item = new Item();
         item.sprite = sprite;
-        item.value = move.createBehavior(sprite, pattern);
-        _items.push(item);
+        item.value = _behavior;
+        _addItem(item);
     }
 
-    //% block="set $pattern pattern of $follower=variables_get(aEnemy) $target=variables_get(mySprite)"
-    export function setChasePattern(target: Sprite, follower: Sprite, pattern: ChasePattern) {
-        follower.onDestroyed(() => {
-            let found = _items.find((item: Item, index: number) => {
-                return item.sprite == follower;
-            });
-            _items.removeElement(found);
+    //% block="set $sprite=variables_get(aEnemy) to follow $target=variables_get(mySprite)"
+    export function setFollower(sprite: Sprite, target: Sprite) {
+        let _item = _findItemBySprite(sprite);
+        if( !_item )
+            return;
+
+        _item.value = new ChaserBehavior(_item.value as MoverBehavior, target);
+    }
+
+    function _addItem(item: Item) {
+        item.sprite.onDestroyed(() => {
+            let _item = _findItemBySprite(item.sprite);
+            _items.removeElement(_item);
         });
-        let item = new Item();
-        item.sprite = follower;
-        item.value = chase.createBehavior(target, follower, pattern);
         _items.push(item);
+        console.log("_items.length:" + _items.length);
+    }
+
+    function _findItemBySprite(sprite:Sprite) {
+        let found = _items.find((_item: Item, index: number) => {
+            return _item.sprite == sprite;
+        });
+        if( found == undefined || found == null)
+            return null
+        return found;
+    }
+
+    function _createBehavior(sprite: Sprite, pattern: MovePattern) : Behavior {
+        switch(pattern) {
+        case MovePattern.Bounce:
+            return new BounceBehavior(sprite);
+        case MovePattern.TurnIfOnWall:
+            return new TurnIfOnWallBehavior(sprite);
+        case MovePattern.BounceAndTurnOnSideWall:
+            return new BounceAndTurnOnSideWallBehavior(sprite);
+        case MovePattern.FlyAndTurnOnSideWall:
+            return new FlyAndTurnOnSideWallBehavior(sprite);
+        default:
+            return null;
+        }
     }
 
 }
