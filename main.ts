@@ -20,6 +20,7 @@ namespace behavior {
 
         _move : Behavior;
         _follow : Behavior;
+        _animation : Behavior;
         _attack : Behavior;
 
         constructor(sprite: Sprite) {
@@ -45,6 +46,8 @@ namespace behavior {
                 updated = this._move.update();
             if( updated && this._follow )
                 updated = this._follow.update();
+            if( this._animation )
+                this._animation.update();
             if( this._attack )
                 this._attack.update();
             return updated;
@@ -160,6 +163,20 @@ namespace behavior {
         }
     }
 
+    class AnimationBehavior implements Behavior {
+        _parent: SpriteBehavior;
+        _leftImages: Image[];
+        _rightImages: Image[];
+        constructor(parent: SpriteBehavior, leftImages: Image[], rightImages: Image[]) {
+            this._parent = parent;
+            this._leftImages = leftImages;
+            this._rightImages = rightImages;
+        }
+        update() : boolean {
+            return true;
+        }
+    }
+
     class AttackerBehavior implements Behavior {
         _attacker: SpriteBehavior
         _attackTarget: Sprite;
@@ -194,7 +211,7 @@ namespace behavior {
 
             let n = Math.abs(x) + Math.abs(y);
             let vx = x / n * 150;
-            let vy = y / n * 150;
+            let vy2 = y / n * 150;
 
 
             // console.log("_onFire() x:" + x + " y:" + y);
@@ -202,7 +219,7 @@ namespace behavior {
             let bullet = sprites.create(this._bullet.image, this._bullet.kind());
             bullet.setFlag(SpriteFlag.DestroyOnWall, true);
             bullet.vx = vx;
-            bullet.vy = vy;
+            bullet.vy = vy2;
             bullet.x = this._attacker.x;
             bullet.y = this._attacker.y;
         }
@@ -222,47 +239,46 @@ namespace behavior {
 
     //% block="set $pattern pattern of $sprite=variables_get(aEnemy)"
     export function setPattern(sprite: Sprite, pattern: MovePattern) {
-        let _item = _findItemBySprite(sprite);
-        if( !_item ) {
-            _item = new Item();
-            _item.sprite = sprite;
-            _item.behavior = new SpriteBehavior(sprite);
-            _addItem(_item);
-        }
-
+        let _item = _createOrGetItemBySprite(sprite);
         _item.behavior._move = _createMoverBehavior(_item.behavior, pattern);
     }
 
     //% block="set $sprite=variables_get(aEnemy) to follow $target=variables_get(mySprite)"
     export function setFollower(sprite: Sprite, target: Sprite) {
-        let _item = _findItemBySprite(sprite);
-        if( !_item ) {
-            _item = new Item();
-            _item.sprite = sprite;
-            _item.behavior = new SpriteBehavior(sprite);
-            _addItem(_item);
-        }
-
+        let _item = _createOrGetItemBySprite(sprite);
         _item.behavior._follow = new FollowerBehavior(_item.behavior, target);
+    }
+
+    //% block="set $sprite=variables_get(aEnemy)|to animate left|$leftFrames=animation_editor|right|$rightFrames=animation_editor|interval|$interval (ms)"
+    //% interval.shadow="timePicker"
+    //% inlineInputMode=inline
+    export function setAnimation(sprite: Sprite, leftFrames: Image[], rightFrames: Image[], interval: number) {
+        let _item = _createOrGetItemBySprite(sprite);
+        _item.behavior._animation = new AnimationBehavior(_item.behavior, leftFrames, rightFrames);
     }
 
     //% block="set $sprite=variables_get(aEnemy) to attack $target=variables_get(mySprite) by $bullet=variables_get(aBullet)"
     export function setAttacker(sprite: Sprite, target: Sprite, bullet: Sprite) {
-        let _item = _findItemBySprite(sprite);
-        if( !_item ) {
-            _item = new Item();
-            _item.sprite = sprite;
-            _item.behavior = new SpriteBehavior(sprite);
-            _addItem(_item);
-        }
-
+        let _item = _createOrGetItemBySprite(sprite);
         _item.behavior._attack = new AttackerBehavior(_item.behavior, target, bullet);
+    }
+
+    function _createOrGetItemBySprite(sprite: Sprite) {
+        let _item = _findItemBySprite(sprite);
+        if( _item )
+            return _item;
+
+        _item = new Item();
+        _item.sprite = sprite;
+        _item.behavior = new SpriteBehavior(sprite);
+        _addItem(_item);
+        return _item;
     }
 
     function _addItem(item: Item) {
         item.sprite.onDestroyed(() => {
-            let _item2 = _findItemBySprite(item.sprite);
-            _items.removeElement(_item2);
+            let _item22 = _findItemBySprite(item.sprite);
+            _items.removeElement(_item22);
         });
         _items.push(item);
         // console.log("_items.length:" + _items.length);
@@ -293,3 +309,128 @@ namespace behavior {
     }
 
 }
+
+    // /**
+    //  * Create and run an image animation on a sprite
+    //  * @param frames the frames to animate through
+    //  * @param sprite the sprite to animate on
+    //  * @param frameInterval the time between changes, eg: 500
+    //  */
+    // //% blockId=run_image_animation
+    // //% block="animate $sprite=variables_get(mySprite) frames $frames=animation_editor interval (ms) $frameInterval=timePicker loop $loop=toggleOnOff"
+    // //% group="Animate"
+    // //% weight=100
+    // //% help=animation/run-image-animation
+    // export function runImageAnimation(sprite: Sprite, frames: Image[], frameInterval?: number, loop?: boolean) {
+    //     const anim = new ImageAnimation(sprite, frames, frameInterval || 500, !!loop);
+    //     anim.init();
+    // }
+
+    // animation.runImageAnimation(
+    // mySprite2,
+    // [img`
+    //     . . . . . . . . . . . . . . . . 
+    //     . . . . . . . . . . . . . . . . 
+    //     . . . . . . . . . b 5 5 b . . . 
+    //     . . . . . . b b b b b b . . . . 
+    //     . . . . . b b 5 5 5 5 5 b . . . 
+    //     . b b b b b 5 5 5 5 5 5 5 b . . 
+    //     . b d 5 b 5 5 5 5 5 5 5 5 b . . 
+    //     . . b 5 5 b 5 d 1 f 5 d 4 f . . 
+    //     . . b d 5 5 b 1 f f 5 4 4 c . . 
+    //     b b d b 5 5 5 d f b 4 4 4 4 b . 
+    //     b d d c d 5 5 b 5 4 4 4 4 4 4 b 
+    //     c d d d c c b 5 5 5 5 5 5 5 b . 
+    //     c b d d d d d 5 5 5 5 5 5 5 b . 
+    //     . c d d d d d d 5 5 5 5 5 d b . 
+    //     . . c b d d d d d 5 5 5 b b . . 
+    //     . . . c c c c c c c c b b . . . 
+    //     `,img`
+    //     . . . . . . . . . . . . . . . . 
+    //     . . . . . . . . . . b 5 b . . . 
+    //     . . . . . . . . . b 5 b . . . . 
+    //     . . . . . . b b b b b b . . . . 
+    //     . . . . . b b 5 5 5 5 5 b . . . 
+    //     . b b b b b 5 5 5 5 5 5 5 b . . 
+    //     . b d 5 b 5 5 5 5 5 5 5 5 b . . 
+    //     . . b 5 5 b 5 d 1 f 5 d 4 f . . 
+    //     . . b d 5 5 b 1 f f 5 4 4 c . . 
+    //     b b d b 5 5 5 d f b 4 4 4 4 4 b 
+    //     b d d c d 5 5 b 5 4 4 4 4 4 b . 
+    //     c d d d c c b 5 5 5 5 5 5 5 b . 
+    //     c b d d d d d 5 5 5 5 5 5 5 b . 
+    //     . c d d d d d d 5 5 5 5 5 d b . 
+    //     . . c b d d d d d 5 5 5 b b . . 
+    //     . . . c c c c c c c c b b . . . 
+    //     `,img`
+    //     . . . . . . . . . . b 5 b . . . 
+    //     . . . . . . . . . b 5 b . . . . 
+    //     . . . . . . . . . b c . . . . . 
+    //     . . . . . . b b b b b b . . . . 
+    //     . . . . . b b 5 5 5 5 5 b . . . 
+    //     . . . . b b 5 d 1 f 5 5 d f . . 
+    //     . . . . b 5 5 1 f f 5 d 4 c . . 
+    //     . . . . b 5 5 d f b d d 4 4 . . 
+    //     b d d d b b d 5 5 5 4 4 4 4 4 b 
+    //     b b d 5 5 5 b 5 5 4 4 4 4 4 b . 
+    //     b d c 5 5 5 5 d 5 5 5 5 5 b . . 
+    //     c d d c d 5 5 b 5 5 5 5 5 5 b . 
+    //     c b d d c c b 5 5 5 5 5 5 5 b . 
+    //     . c d d d d d d 5 5 5 5 5 d b . 
+    //     . . c b d d d d d 5 5 5 b b . . 
+    //     . . . c c c c c c c c b b . . . 
+    //     `,img`
+    //     . . . . . . . . . . b 5 b . . . 
+    //     . . . . . . . . . b 5 b . . . . 
+    //     . . . . . . b b b b b b . . . . 
+    //     . . . . . b b 5 5 5 5 5 b . . . 
+    //     . . . . b b 5 d 1 f 5 d 4 c . . 
+    //     . . . . b 5 5 1 f f d d 4 4 4 b 
+    //     . . . . b 5 5 d f b 4 4 4 4 b . 
+    //     . . . b d 5 5 5 5 4 4 4 4 b . . 
+    //     . . b d d 5 5 5 5 5 5 5 5 b . . 
+    //     . b d d d d 5 5 5 5 5 5 5 5 b . 
+    //     b d d d b b b 5 5 5 5 5 5 5 b . 
+    //     c d d b 5 5 d c 5 5 5 5 5 5 b . 
+    //     c b b d 5 d c d 5 5 5 5 5 5 b . 
+    //     . b 5 5 b c d d 5 5 5 5 5 d b . 
+    //     b b c c c d d d d 5 5 5 b b . . 
+    //     . . . c c c c c c c c b b . . . 
+    //     `,img`
+    //     . . . . . . . . . . b 5 b . . . 
+    //     . . . . . . . . . b 5 b . . . . 
+    //     . . . . . . b b b b b b . . . . 
+    //     . . . . . b b 5 5 5 5 5 b . . . 
+    //     . . . . b b 5 d 1 f 5 d 4 c . . 
+    //     . . . . b 5 5 1 f f d d 4 4 4 b 
+    //     . . . . b 5 5 d f b 4 4 4 4 b . 
+    //     . . . b d 5 5 5 5 4 4 4 4 b . . 
+    //     . b b d d d 5 5 5 5 5 5 5 b . . 
+    //     b d d d b b b 5 5 5 5 5 5 5 b . 
+    //     c d d b 5 5 d c 5 5 5 5 5 5 b . 
+    //     c b b d 5 d c d 5 5 5 5 5 5 b . 
+    //     c b 5 5 b c d d 5 5 5 5 5 5 b . 
+    //     b b c c c d d d 5 5 5 5 5 d b . 
+    //     . . . . c c d d d 5 5 5 b b . . 
+    //     . . . . . . c c c c c b b . . . 
+    //     `,img`
+    //     . . . . . . . . . . b 5 b . . . 
+    //     . . . . . . . . . b 5 b . . . . 
+    //     . . . . . . b b b b b b . . . . 
+    //     . . . . . b b 5 5 5 5 5 b . . . 
+    //     . . . . b b 5 d 1 f 5 5 d f . . 
+    //     . . . . b 5 5 1 f f 5 d 4 c . . 
+    //     . . . . b 5 5 d f b d d 4 4 . . 
+    //     . b b b d 5 5 5 5 5 4 4 4 4 4 b 
+    //     b d d d b b d 5 5 4 4 4 4 4 b . 
+    //     b b d 5 5 5 b 5 5 5 5 5 5 b . . 
+    //     c d c 5 5 5 5 d 5 5 5 5 5 5 b . 
+    //     c b d c d 5 5 b 5 5 5 5 5 5 b . 
+    //     . c d d c c b d 5 5 5 5 5 d b . 
+    //     . . c b d d d d d 5 5 5 b b . . 
+    //     . . . c c c c c c c c b b . . . 
+    //     . . . . . . . . . . . . . . . . 
+    //     `],
+    // 200,
+    // true
+    // )
