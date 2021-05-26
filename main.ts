@@ -109,8 +109,8 @@ namespace behavior {
     }
 
     class BounceBehavior extends MoverBehavior {
-        constructor(parent: SpriteBehavior) {
-            super(parent, 0, 120);
+        constructor(parent: SpriteBehavior, vx: number, vy: number) {
+            super(parent, vx, vy);
         }
         update() : boolean {
             this._parent.fall();
@@ -119,8 +119,8 @@ namespace behavior {
     }
 
     class TurnIfOnWallBehavior extends MoverBehavior {
-        constructor(parent: SpriteBehavior) {
-            super(parent, 50, 200);
+        constructor(parent: SpriteBehavior, vx: number, vy: number) {
+            super(parent, vx, vy);
         }
         update() : boolean {
             this._parent.fall();
@@ -130,8 +130,8 @@ namespace behavior {
     }
 
     class BounceAndTurnOnSideWallBehavior extends MoverBehavior {
-        constructor(parent: SpriteBehavior) {
-            super(parent, 50, 200);
+        constructor(parent: SpriteBehavior, vx: number, vy: number) {
+            super(parent, vx, vy);
         }
         update() : boolean {
             this._parent.fall();
@@ -149,8 +149,8 @@ namespace behavior {
     }
 
     class FlyAndTurnOnSideWallBehavior extends MoverBehavior {
-        constructor(parent: SpriteBehavior) {
-            super(parent, 50, 0);
+        constructor(parent: SpriteBehavior, vx: number, vy: number) {
+            super(parent, vx, 0);
         }
         update() : boolean {
             return this._parent.ternIfOnWall();
@@ -268,10 +268,13 @@ namespace behavior {
         }
     })
 
-    //% block="set $pattern pattern of $sprite=variables_get(aEnemy)"
-    export function setPattern(sprite: Sprite, pattern: MovePattern) {
+    //% block="set|$pattern pattern of|$sprite=variables_get(aEnemy)|vx|$vx|vy|$vy"
+    //% vx.shadow=spriteSpeedPicker
+    //% vy.shadow=spriteSpeedPicker
+    //% inlineInputMode=inline
+    export function setPattern(sprite: Sprite, pattern: MovePattern, vx: number, vy: number) {
         let _item = _createOrGetItemBySprite(sprite);
-        _item.behavior._move = _createMoverBehavior(_item.behavior, pattern);
+        _item.behavior._move = _createMoverBehavior(_item.behavior, pattern, vx, vy);
     }
 
     //% block="set $sprite=variables_get(aEnemy) to follow $target=variables_get(mySprite)"
@@ -324,16 +327,16 @@ namespace behavior {
         return found;
     }
 
-    function _createMoverBehavior(spriteBehavior: SpriteBehavior, pattern: MovePattern) : Behavior {
+    function _createMoverBehavior(spriteBehavior: SpriteBehavior, pattern: MovePattern, vx: number, vy: number) : Behavior {
         switch(pattern) {
         case MovePattern.Bounce:
-            return new BounceBehavior(spriteBehavior);
+            return new BounceBehavior(spriteBehavior, vx, vy);
         case MovePattern.TurnIfOnWall:
-            return new TurnIfOnWallBehavior(spriteBehavior);
+            return new TurnIfOnWallBehavior(spriteBehavior, vx, vy);
         case MovePattern.BounceAndTurnOnSideWall:
-            return new BounceAndTurnOnSideWallBehavior(spriteBehavior);
+            return new BounceAndTurnOnSideWallBehavior(spriteBehavior, vx, vy);
         case MovePattern.FlyAndTurnOnSideWall:
-            return new FlyAndTurnOnSideWallBehavior(spriteBehavior);
+            return new FlyAndTurnOnSideWallBehavior(spriteBehavior, vx, vy);
         default:
             return null;
         }
