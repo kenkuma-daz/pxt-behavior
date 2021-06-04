@@ -1,9 +1,7 @@
 namespace behavior {
 
     export interface Behavior {
-        // sprite : Sprite;
         update() : boolean;
-        // moveTo(sprite: Sprite) : boolean;
     }
 
     export enum MovePattern {
@@ -11,6 +9,7 @@ namespace behavior {
         TurnIfOnWall,
         BounceAndTurnOnSideWall,
         FlyAndTurnOnSideWall,
+        WalkOnFloor
     }
 
     class SpriteBehavior implements Behavior {
@@ -95,6 +94,24 @@ namespace behavior {
             }
             return false;
         }
+
+        _isWallAt(x:number, y:number) : boolean {
+            let loc : tiles.Location = tiles.getTileLocation(x >> 4, y >> 4);
+            const tm = game.currentScene().tileMap;
+            return tm ? tm.isObstacle(loc.col, loc.row) : false;
+        }
+
+        walkOnFloor() : boolean {
+            if (!this._isWallAt(this._sprite.x-8 , this._sprite.y+16) ) {
+                this.moveRight();
+                return false;
+            } else if (!this._isWallAt(this._sprite.x+8 , this._sprite.y+16) ) {
+                this.moveLeft();
+                return false;
+            }
+            return true;
+        }
+
     }
 
     class MoverBehavior implements Behavior {
@@ -157,6 +174,17 @@ namespace behavior {
         }
     }
 
+    class WalkOnFloorBehavior extends MoverBehavior {
+        constructor(parent: SpriteBehavior, vx: number, vy: number) {
+            super(parent, vx, vy);
+        }
+        update() : boolean {
+            this._parent.fall();
+            return this._parent.walkOnFloor();
+            // return false;
+        }
+    }
+
     class FollowerBehavior implements Behavior {
         _follower: SpriteBehavior
         _followTarget: Sprite;
@@ -175,12 +203,16 @@ namespace behavior {
         _rightFrames: Image[];
         _interval: number;
         _direction: number;
+        _x: number;
+        _y: number;
         constructor(parent: SpriteBehavior, leftFrames: Image[], rightFrames: Image[], interval: number) {
             this._parent = parent;
             this._leftFrames = leftFrames;
             this._rightFrames = rightFrames;
             this._interval = interval;
             this._direction = 2;
+            this._x = -1;
+            this._y = -1;
         }
 
         _isDirectionChnaged() : boolean {
@@ -191,6 +223,12 @@ namespace behavior {
         }
 
         update() : boolean {
+            let isPositionChanged = Math.abs(this._x - this._parent.x) > 2 || Math.abs(this._y - this._parent.y) > 2;
+            if( !isPositionChanged )
+                return false;
+            this._x = this._parent.x;
+            this._y = this._parent.y;
+
             if( !this._isDirectionChnaged() )
                 return false;
 
@@ -279,34 +317,34 @@ namespace behavior {
 
     //% block="set $sprite=variables_get(aEnemy) to follow $target=variables_get(mySprite)"
     export function setFollower(sprite: Sprite, target: Sprite) {
-        let _item = _createOrGetItemBySprite(sprite);
-        _item.behavior._follow = new FollowerBehavior(_item.behavior, target);
+        let _item2 = _createOrGetItemBySprite(sprite);
+        _item2.behavior._follow = new FollowerBehavior(_item2.behavior, target);
     }
 
     //% block="set $sprite=variables_get(aEnemy)|to animate left|$leftFrames=animation_editor|right|$rightFrames=animation_editor|interval|$interval (ms)"
     //% interval.shadow="timePicker"
     //% inlineInputMode=inline
     export function setAnimation(sprite: Sprite, leftFrames: Image[], rightFrames: Image[], interval: number) {
-        let _item = _createOrGetItemBySprite(sprite);
-        _item.behavior._animation = new AnimationBehavior(_item.behavior, leftFrames, rightFrames, interval);
+        let _item3 = _createOrGetItemBySprite(sprite);
+        _item3.behavior._animation = new AnimationBehavior(_item3.behavior, leftFrames, rightFrames, interval);
     }
 
     //% block="set $sprite=variables_get(aEnemy) to attack $target=variables_get(mySprite) by $bullet=variables_get(aBullet)"
     export function setAttacker(sprite: Sprite, target: Sprite, bullet: Sprite) {
-        let _item = _createOrGetItemBySprite(sprite);
-        _item.behavior._attack = new AttackerBehavior(_item.behavior, target, bullet);
+        let _item4 = _createOrGetItemBySprite(sprite);
+        _item4.behavior._attack = new AttackerBehavior(_item4.behavior, target, bullet);
     }
 
     function _createOrGetItemBySprite(sprite: Sprite) {
-        let _item = _findItemBySprite(sprite);
-        if( _item )
-            return _item;
+        let _item5 = _findItemBySprite(sprite);
+        if( _item5 )
+            return _item5;
 
-        _item = new Item();
-        _item.sprite = sprite;
-        _item.behavior = new SpriteBehavior(sprite);
-        _addItem(_item);
-        return _item;
+        _item5 = new Item();
+        _item5.sprite = sprite;
+        _item5.behavior = new SpriteBehavior(sprite);
+        _addItem(_item5);
+        return _item5;
     }
 
     function _addItem(item: Item) {
@@ -337,6 +375,8 @@ namespace behavior {
             return new BounceAndTurnOnSideWallBehavior(spriteBehavior, vx, vy);
         case MovePattern.FlyAndTurnOnSideWall:
             return new FlyAndTurnOnSideWallBehavior(spriteBehavior, vx, vy);
+        case MovePattern.WalkOnFloor:
+            return new WalkOnFloorBehavior(spriteBehavior, vx, vy);
         default:
             return null;
         }
